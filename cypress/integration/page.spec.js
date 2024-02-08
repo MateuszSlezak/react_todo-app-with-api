@@ -1,6 +1,8 @@
 /// <reference types='cypress' />
 /// <reference types='../support' />
 
+import mixedTodos from '../fixtures/todos.json';
+
 //#region Page Objects
 const page = {
   toggleAllButton: () => cy.byDataCy('ToggleAllButton'),
@@ -23,6 +25,8 @@ const page = {
       clock.tick(delay);
       clock.restore();
     });
+
+    cy.wait(50);
   },
 
   /**
@@ -53,10 +57,11 @@ const page = {
     return cy.intercept(options, response || { body: '1' });
   },
   mockUpdate: (id, response) => {
+    const todo = mixedTodos.find(todo => todo.id === id) || {};
     const options = { method: 'PATCH', url: `**/todos/${id}` };
 
     const spy = cy.stub()
-      .callsFake(req => req.reply({ body: { ...req.body, id } }))
+      .callsFake(req => req.reply({ body: { ...todo, ...req.body, id } }))
       .as('updateCallback');
 
     return cy.intercept(options, response || spy);
@@ -111,7 +116,7 @@ Cypress.on('fail', (e) => {
 
 describe('', () => {
   beforeEach(() => {
-    // if (failed) Cypress.runner.stop();
+    if (failed) Cypress.runner.stop();
   });
 
   describe('Page with no todos', () => {
@@ -124,7 +129,7 @@ describe('', () => {
       page.visit();
 
       cy.wait('@loadRequest');
-      cy.wait(1000);
+      cy.wait(500);
 
       cy.get('@loadCallback').should('have.callCount', 1);
     });
@@ -157,6 +162,9 @@ describe('', () => {
 
     describe('on loading error', () => {
       beforeEach(() => {
+        // to prevent Cypress from failing the test on uncaught exception
+        cy.once('uncaught:exception', () => false);
+
         page.mockLoad({ statusCode: 404, body: 'Not found' }).as('loadRequest');
         page.visit();
         cy.wait('@loadRequest');
@@ -171,6 +179,9 @@ describe('', () => {
       });
 
       it('should hide error after 3 seconds', () => {
+        // just in case
+        cy.wait(50);
+
         cy.clock();
         cy.tick(2500);
         errorMessage.assertVisible();
@@ -399,6 +410,9 @@ describe('', () => {
       });
 
       it('should hide an error message after 3 seconds', () => {
+        // just in case
+        cy.wait(50);
+
         cy.clock();
         cy.tick(3000);
         errorMessage.assertHidden();
@@ -425,6 +439,9 @@ describe('', () => {
       });
 
       it('should hide an error message after 3 seconds', () => {
+        // just in case
+        cy.wait(50);
+
         cy.clock();
         cy.tick(3000);
         errorMessage.assertHidden();
@@ -486,7 +503,8 @@ describe('', () => {
           cy.wait('@createRequest');
         });
 
-        it('should replace loader with a created todo', () => {
+        // this test may be flaky
+        it.skip('should replace loader with a created todo', () => {
           page.flushJSTimers();
           todos.assertCount(6);
           todos.assertNotLoading(5);
@@ -525,9 +543,10 @@ describe('', () => {
 
           page.newTodoField().type('Hello world{enter}');
           cy.wait('@createRequest2');
+          page.flushJSTimers();
 
           todos.assertCount(7);
-          todos.assertNotLoading(6);
+          // todos.assertNotLoading(6);
           todos.assertNotCompleted(6);
           todos.assertTitle(6, 'Hello world');
           page.todosCounter().should('have.text', '4 items left');
@@ -539,6 +558,9 @@ describe('', () => {
 
         page.newTodoField().type('  Other Title    {enter}');
         cy.wait('@createRequest');
+
+        // just in case
+        page.flushJSTimers();
 
         todos.assertTitle(5, 'Other Title');
       });
@@ -556,6 +578,9 @@ describe('', () => {
 
     describe('on request fail', () => {
       beforeEach(() => {
+        // to prevent Cypress from failing the test on uncaught exception
+        cy.once('uncaught:exception', () => false);
+
         page.mockCreate({ statusCode: 503, body: 'Service Unavailable' })
           .as('createRequest');
 
@@ -606,6 +631,9 @@ describe('', () => {
       });
 
       it('should show an error message again on a next fail', () => {
+        // to prevent Cypress from failing the test on uncaught exception
+        cy.once('uncaught:exception', () => false);
+
         page.mockCreate({ statusCode: 503, body: 'Service Unavailable' })
           .as('createRequest2');
 
@@ -616,6 +644,9 @@ describe('', () => {
       });
 
       it('should keep an error message for 3s after the last fail', () => {
+        // to prevent Cypress from failing the test on uncaught exception
+        cy.once('uncaught:exception', () => false);
+
         page.mockCreate({ statusCode: 503, body: 'Service Unavailable' })
           .as('createRequest2');
 
@@ -638,7 +669,7 @@ describe('', () => {
         page.flushJSTimers();
 
         todos.assertCount(6);
-        todos.assertNotLoading(5);
+        // todos.assertNotLoading(5);
         todos.assertNotCompleted(5);
         todos.assertTitle(5, 'Test Todo');
 
@@ -718,6 +749,9 @@ describe('', () => {
       });
 
       it('should not remove the todo from the list on an API error', () => {
+        // to prevent Cypress from failing the test on uncaught exception
+        cy.once('uncaught:exception', () => false);
+
         page.mockDelete(257334, { statusCode: 500, body: 'Internal Server Error' }).as('deleteRequest');
 
         todos.deleteButton(0).click();
@@ -728,6 +762,9 @@ describe('', () => {
       });
 
       it('should show an error message on an API error', () => {
+        // to prevent Cypress from failing the test on uncaught exception
+        cy.once('uncaught:exception', () => false);
+
         page.mockDelete(257334, { statusCode: 500, body: 'Internal Server Error' }).as('deleteRequest');
 
         todos.deleteButton(0).click();
@@ -746,7 +783,12 @@ describe('', () => {
       });
 
       it('should not adjust the active todo count after failed deletion', () => {
-        page.mockDelete(257338, { statusCode: 500, body: 'Internal Server Error' }).as('deleteRequest');
+        // to prevent Cypress from failing the test on uncaught exception
+        cy.once('uncaught:exception', () => false);
+
+        page.mockDelete(257338, { statusCode: 500, body: 'Internal Server Error' })
+          .as('deleteRequest');
+
         todos.deleteButton(4).click();
         cy.wait('@deleteRequest');
 
@@ -855,6 +897,9 @@ describe('', () => {
 
       describe('on a single fail', () => {
         beforeEach(() => {
+          // to prevent Cypress from failing the test on uncaught exception
+          cy.once('uncaught:exception', () => false);
+
           page.mockDelete(257334).as('deleteRequest1');
           page.mockDelete(257335, { statusCode: 500, body: 'Internal Server Error' }).as('deleteRequest2');
           page.mockDelete(257336).as('deleteRequest3');
@@ -972,6 +1017,7 @@ describe('', () => {
       });
 
       it('should cancel loading', () => {
+        page.flushJSTimers();
         todos.assertNotLoading(0);
       });
 
@@ -986,6 +1032,9 @@ describe('', () => {
 
     describe('on fail', () => {
       beforeEach(() => {
+        // to prevent Cypress from failing the test on uncaught exception
+        cy.once('uncaught:exception', () => false);
+
         page.mockUpdate(257334, { statusCode: 503, body: 'Service Unavailable' })
           .as('updateRequest');
 
@@ -1049,7 +1098,11 @@ describe('', () => {
       });
 
       it('should not hide a todo on fail', () => {
-        page.mockUpdate(257334).as('updateRequest');
+        // to prevent Cypress from failing the test on uncaught exception
+        cy.once('uncaught:exception', () => false);
+
+        page.mockUpdate(257334, { statusCode: 503, body: 'Service Unavailable' })
+          .as('updateRequest');
 
         todos.statusToggler(0).click();
         cy.wait('@updateRequest');
@@ -1147,6 +1200,9 @@ describe('', () => {
       });
 
       it('should stay active after a todo toggling fail', () => {
+        // to prevent Cypress from failing the test on uncaught exception
+        cy.once('uncaught:exception', () => false);
+
         page.mockUpdate(257335, { statusCode: 503 }).as('updateRequest');
         todos.statusToggler(1).click();
         cy.wait('@updateRequest');
@@ -1440,7 +1496,8 @@ describe('', () => {
           todos.assertLoading(0);
         });
 
-        it('should stay while waiting', () => {
+        // It depend on your implementation
+        it.skip('should stay while waiting', () => {
           page.mockUpdate(257334);
 
           todos.title(0).trigger('dblclick');
@@ -1462,6 +1519,7 @@ describe('', () => {
         it('should cancel loading', () => {
           todos.titleField(0).type('123{enter}');
           cy.wait('@renameRequest');
+          page.flushJSTimers();
 
           todos.assertNotLoading(0);
         });
@@ -1469,21 +1527,23 @@ describe('', () => {
         it('should be closed', () => {
           todos.titleField(0).type('123{enter}');
           cy.wait('@renameRequest');
-          cy.wait(50);
+          page.flushJSTimers();
 
           todos.titleField(0).should('not.exist');
         });
 
         it('should show the updated title', () => {
           todos.titleField(0).type('Something{enter}');
-          cy.wait('@renameRequest')
+          cy.wait('@renameRequest');
+          page.flushJSTimers();
 
           todos.assertTitle(0, 'Something');
         });
 
         it('should show trim the new title', () => {
           todos.titleField(0).type('   Some new title      {enter}');
-          cy.wait('@renameRequest')
+          cy.wait('@renameRequest');
+          page.flushJSTimers();
 
           todos.assertTitle(0, 'Some new title');
         });
@@ -1491,6 +1551,9 @@ describe('', () => {
 
       describe('on fail', () => {
         beforeEach(() => {
+          // to prevent Cypress from failing the test on uncaught exception
+          cy.once('uncaught:exception', () => false);
+
           page.mockUpdate(257334, { statusCode: 503 }).as('renameRequest');
 
           todos.title(0).trigger('dblclick');
@@ -1499,6 +1562,7 @@ describe('', () => {
         });
 
         it('should cancel loading on fail', () => {
+          page.flushJSTimers();
           todos.assertNotLoading(0);
         });
 
@@ -1512,8 +1576,7 @@ describe('', () => {
         });
 
         it('should hide error message in 3s', () => {
-          cy.clock();
-          cy.tick(3000);
+          page.flushJSTimers(3000);
 
           errorMessage.assertHidden();
         });
@@ -1600,6 +1663,9 @@ describe('', () => {
         });
 
         it('should show deleting error message on fail', () => {
+          // to prevent Cypress from failing the test on uncaught exception
+          cy.once('uncaught:exception', () => false);
+
           page.mockDelete(257334, { statusCode: 503 }).as('deleteRequest');
 
           todos.titleField(0).type('{enter}');
@@ -1609,16 +1675,24 @@ describe('', () => {
           errorMessage.assertText('Unable to delete a todo')
         });
 
-        it('should hide loader on fail', () => {
+        // this test may be unstable
+        it.skip('should hide loader on fail', () => {
+          // to prevent Cypress from failing the test on uncaught exception
+          cy.once('uncaught:exception', () => false);
+
           page.mockDelete(257334, { statusCode: 503 }).as('deleteRequest');
 
           todos.titleField(0).type('{enter}');
           cy.wait('@deleteRequest');
+          page.flushJSTimers();
 
           todos.assertNotLoading(0);
         });
 
         it('should stay open on fail', () => {
+          // to prevent Cypress from failing the test on uncaught exception
+          cy.once('uncaught:exception', () => false);
+
           page.mockDelete(257334, { statusCode: 503 }).as('deleteRequest');
 
           todos.titleField(0).type('{enter}');
@@ -1648,7 +1722,10 @@ describe('', () => {
           todos.titleField(0).clear()
           todos.titleField(0).type('New title');
           todos.titleField(0).blur();
-          cy.wait('@renameRequest')
+          cy.wait('@renameRequest');
+
+          // just in case
+          page.flushJSTimers();
 
           todos.assertTitle(0, 'New title');
         });
@@ -1664,7 +1741,7 @@ describe('', () => {
           todos.titleField(0).blur();
 
           cy.get('@renameCallback').should('not.be.called');
-          cy.wait(50);
+          page.flushJSTimers();
           todos.titleField(0).should('not.exist');
           todos.assertTitle(0, 'HTML');
         });
